@@ -1,0 +1,14 @@
+blank_issues_enabled: false  
+
+# contact_links:
+
+issue_template:
+  - name: Feature Request
+    about: Suggest a new feature or enhancement
+    labels: enhancement
+    title: "[FEAT] "
+    description: |
+      ### Feature request
+      Describe the feature you would like to see implemented.
+  
+# 용도별 템플릿 추가 필요
