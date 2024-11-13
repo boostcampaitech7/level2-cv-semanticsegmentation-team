@@ -17,7 +17,7 @@ class Trainer:
     def __init__(self):
         """Trainer 클래스 초기화"""
         self.data_dir = config.data_root
-        self.fold_dir = config.label_root
+        self.fold_dir = config.fold_root
         self.num_epochs = config.num_epochs
         self.batch_size = config.batch_size
         self.learning_rate = config.lr

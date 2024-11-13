@@ -21,7 +21,7 @@ device: "cuda"
 # 데이터 및 저장 경로 설정
 data_root: "/data/ephemeral/beomjo/level2-cv-semanticsegmentation-team/data"
 image_root: "/data/ephemeral/beomjo/level2-cv-semanticsegmentation-team/data/train/DCM"
-label_root: "/data/ephemeral/beomjo/level2-cv-semanticsegmentation-team/kfold_splits/"
+fold_root: "/data/ephemeral/beomjo/level2-cv-semanticsegmentation-team/kfold_splits/"
 test_image_root: "/data/ephemeral/home/data/test/DCM"
 saved_dir: "/data/ephemeral/home/saved_model"
 

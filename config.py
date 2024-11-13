@@ -29,7 +29,7 @@ class Config:
         # 데이터 및 경로 설정
         self.data_root = self.cfg['data_root']
         self.image_root = self.cfg['image_root']
-        self.label_root = self.cfg['label_root']
+        self.fold_root = self.cfg['fold_root']
         self.test_image_root = self.cfg['test_image_root']
         self.saved_dir = os.path.join(self.cfg['saved_dir'], self.wandb_name)
 
