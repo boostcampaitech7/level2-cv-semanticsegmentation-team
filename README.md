@@ -2,7 +2,10 @@
 
 ### 1. WandB 설정
 WandB를 통해 학습 로그를 추적하려면 `config.yaml`에서 다음 항목을 수정하세요:
-
+```yaml
+wandb_group: "your_project_group" # 프로젝트 그룹 이름 (필수)
+wandb_name: "experiment_name"
+```
 ### 2. 모델 설정
 사전 학습된 모델을 사용하려면 다음을 설정합니다:
 ```yaml
