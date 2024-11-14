@@ -4,7 +4,6 @@ import numpy as np
 from constants import class_colors
 
 def draw_annotations(image, annotations, alpha=0.5):
-    """폴리곤 어노테이션을 이미지 위에 그립니다."""
     if len(image.shape) == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     overlay = image.copy()
