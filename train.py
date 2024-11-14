@@ -15,7 +15,7 @@ import yaml
 from pathlib import Path
 
 from config.config import Config
-from models.model import get_model
+from models.model import get_model 
 from data.dataset import XRayDataset
 from utils.utils import set_seed, save_model
 
@@ -111,7 +111,7 @@ class Trainer:
         # 결과 저장 디렉토리 생성
         current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.save_dir = Path("experiments") / f"{current_time}_{args.model_name}_{args.encoder}"
-        self.save_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(self.save_dir, exist_ok=True)
         
         # 설정 저장
         self.save_config()
@@ -171,6 +171,7 @@ class Trainer:
                     p=self.args.aug_brightness_prob
                 ),
                 A.GaussNoise(p=self.args.aug_noise_prob),
+                A.GridDistortion(p=0.2),
                 A.CoarseDropout(
                     max_holes=8,
                     max_height=32,
@@ -240,7 +241,7 @@ class Trainer:
                     loss = criterion(outputs, masks)
                     val_loss += loss.item()
                     
-                    outputs = outputs + 1.0
+                    # Apply sigmoid and threshold
                     outputs = torch.sigmoid(outputs)
                     outputs = (outputs > threshold).float()
                     
@@ -270,7 +271,7 @@ class Trainer:
         self.config.FOLD = fold_num
         self.config.EXP_NAME = f"{self.config.MODEL_NAME}_{self.config.ENCODER}_fold{fold_num}"
         fold_dir = self.save_dir / f"fold_{fold_num}"
-        fold_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(fold_dir, exist_ok=True)
         
         # Transform 준비
         train_transform = self._get_transforms(is_train=True)
@@ -346,7 +347,7 @@ class Trainer:
                     f'fold{fold_num}/train_loss': train_loss,
                     f'fold{fold_num}/val_loss': val_loss,
                     f'fold{fold_num}/val_dice': val_dice,
-                    f'fold{fold_num}/lr': current_lr,
+                    f'folf'fold{fold_num}/lr': current_lr,
                     'epoch': epoch
                 })
             
@@ -356,6 +357,7 @@ class Trainer:
             if val_dice > best_dice:
                 best_dice = val_dice
                 save_path = fold_dir / f'best_dice_model_fold{fold_num}.pth'
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 save_model(model, save_path)
                 print(f"New best dice score: {best_dice:.4f}, saved to {save_path}")
             
@@ -363,10 +365,12 @@ class Trainer:
             if val_loss < best_loss:
                 best_loss = val_loss
                 save_path = fold_dir / f'best_loss_model_fold{fold_num}.pth'
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 save_model(model, save_path)
                 print(f"New best validation loss: {best_loss:.4f}, saved to {save_path}")
             
             # Early stopping 조건 확인
+            early_stopping(val_loss)  # loss 기준으로 early stopping
             if early_stopping.early_stop:
                 print("Early stopping triggered")
                 break
@@ -379,7 +383,14 @@ class Trainer:
             'best_dice': best_dice,
             'best_loss': best_loss,
             'final_lr': current_lr,
-            'epochs_trained': epoch + 1
+            'epochs_trained': epoch + 1,
+            'training_params': {
+                'batch_size': self.args.batch_size,
+                'initial_lr': self.args.lr,
+                'model': self.args.model_name,
+                'encoder': self.args.encoder,
+                'augmentation_used': self.args.use_augmentation
+            }
         }
         
         with open(fold_dir / 'results.json', 'w') as f:
@@ -397,8 +408,12 @@ def main():
     # Initialize config
     config = Config(args)
     
+    # GPU 사용 가능 여부 확인
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
+    
     # Create trainer
-    trainer = Trainer(config, args, num_epochs=args.num_epochs)
+    trainer = Trainer(config, args, num_epochs=args.num_epochs, device=device)
     
     if args.fold is not None:
         # Train single fold
@@ -417,10 +432,33 @@ def main():
             
         print("\nTraining Completed!")
         print("=" * 50)
+        print("\nResults Summary:")
+        print("-" * 30)
         for fold_num, score in enumerate(fold_scores):
             print(f"Fold {fold_num} Best Dice: {score:.4f}")
-        print(f"Average Dice: {sum(fold_scores)/len(fold_scores):.4f}")
-        print(f"Std Dice: {np.std(fold_scores):.4f}")
+        mean_dice = sum(fold_scores)/len(fold_scores)
+        std_dice = np.std(fold_scores)
+        print("-" * 30)
+        print(f"Average Dice: {mean_dice:.4f}")
+        print(f"Std Dice: {std_dice:.4f}")
+        
+        # Save overall results
+        overall_results = {
+            'fold_scores': {f'fold_{i}': score for i, score in enumerate(fold_scores)},
+            'mean_dice': mean_dice,
+            'std_dice': std_dice,
+            'training_params': {
+                'batch_size': args.batch_size,
+                'initial_lr': args.lr,
+                'model': args.model_name,
+                'encoder': args.encoder,
+                'augmentation_used': args.use_augmentation,
+                'num_epochs': args.num_epochs
+            }
+        }
+        
+        with open(trainer.save_dir / 'overall_results.json', 'w') as f:
+            json.dump(overall_results, f, indent=4)
 
 if __name__ == "__main__":
     main()
