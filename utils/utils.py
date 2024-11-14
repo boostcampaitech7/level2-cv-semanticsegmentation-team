@@ -66,9 +66,13 @@ def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-def save_model(model, saved_dir, file_name='best_model.pt'):
-    output_path = os.path.join(saved_dir, file_name)
-    torch.save(model, output_path)
+def save_model(model, output_path):
+    """모델 저장 함수"""
+    # 경로를 Path 객체로 변환
+    output_path = Path(output_path)
+    # 상위 디렉토리 생성
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), output_path)  # 모델 state_dict만 저장
 
 def encode_mask_to_rle(mask):
     pixels = mask.flatten()

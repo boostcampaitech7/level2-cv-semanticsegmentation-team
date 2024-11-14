@@ -337,7 +337,7 @@ class Trainer:
         self.config.FOLD = fold_num
         self.config.EXP_NAME = f"{self.config.MODEL_NAME}_{self.config.ENCODER}_fold{fold_num}"
         fold_dir = self.save_dir / f"fold_{fold_num}"
-        os.makedirs(fold_dir, exist_ok=True)
+        fold_dir.mkdir(parents=True, exist_ok=True)
         
         # Transform 준비
         train_transform = self._get_transforms(is_train=True)
@@ -426,6 +426,7 @@ class Trainer:
                 save_model(model, save_path)
                 print(f"New best dice score: {best_dice:.4f}, saved to {save_path}")
             
+            # 최고 성능 모델 저장 (Loss 기준)
             if val_loss < best_loss:
                 best_loss = val_loss
                 save_path = fold_dir / f'best_loss_model_fold{fold_num}.pth'
