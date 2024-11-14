@@ -25,7 +25,7 @@ def parse_args():
     # Data args
     parser.add_argument('--base_dir', type=str, default='/data/ephemeral/home/data',
                       help='base directory containing data')
-    parser.add_argument('--fold_dir', type=str, default='kfold_splits',
+    parser.add_argument('--fold_dir', type=str, default='/data/ephemeral/home/data/kfold_splits',
                       help='directory containing fold splits')
     parser.add_argument('--fold', type=int, default=None,
                       help='specific fold to train (None for all folds)')
@@ -262,7 +262,65 @@ class Trainer:
         print(f'Average validation loss: {avg_val_loss:.4f}')
             
         return torch.mean(dice_per_class).item(), avg_val_loss
-    
+    def _init_optimizer_and_scheduler(self, model):
+        """모델별 최적화된 optimizer와 scheduler 설정"""
+        if self.config.MODEL_NAME in ['Unet', 'UnetPlusPlus', 'MAnet']:
+            optimizer = optim.AdamW(
+                model.parameters(),
+                lr=self.config.LEARNING_RATE,
+                weight_decay=1e-2,
+                betas=(0.9, 0.999)
+            )
+            scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=self.num_epochs,
+                eta_min=self.config.LEARNING_RATE * 1e-2
+            )
+        
+        elif self.config.MODEL_NAME in ['DeepLabV3', 'DeepLabV3Plus']:
+            optimizer = optim.AdamW(
+                model.parameters(),
+                lr=self.config.LEARNING_RATE,
+                weight_decay=2e-2,
+                betas=(0.9, 0.999)
+            )
+            scheduler = optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=self.config.LEARNING_RATE,
+                epochs=self.num_epochs,
+                steps_per_epoch=len(self.train_loader),
+                pct_start=0.1
+            )
+        
+        elif self.config.MODEL_NAME in ['FPN', 'PSPNet']:
+            optimizer = optim.AdamW(
+                model.parameters(),
+                lr=self.config.LEARNING_RATE,
+                weight_decay=1e-2
+            )
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode='max',
+                factor=0.5,
+                patience=5,
+                verbose=True
+            )
+        
+        else:  # 기본 설정
+            optimizer = optim.AdamW(
+                model.parameters(),
+                lr=self.config.LEARNING_RATE,
+                weight_decay=1e-2
+            )
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode='max',
+                factor=0.5,
+                patience=3,
+                verbose=True
+            )
+        
+        return optimizer, scheduler
     def train_fold(self, fold_num: int, fold_data: dict):
         """특정 fold에 대한 학습 수행"""
         print(f"\nTraining Fold {fold_num}")
@@ -300,7 +358,7 @@ class Trainer:
         # 모델 초기화
         model = self._init_model()
         criterion = nn.BCEWithLogitsLoss()
-        optimizer = optim.AdamW(model.parameters(), lr=self.config.LEARNING_RATE, weight_decay=1e-2)
+        optimizer, scheduler = self._init_optimizer_and_scheduler(model)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, verbose=True)
         
         # Early Stopping 초기화
@@ -346,8 +404,8 @@ class Trainer:
                 wandb.log({
                     f'fold{fold_num}/train_loss': train_loss,
                     f'fold{fold_num}/val_loss': val_loss,
-                    f'fold{fold_num}/val_dice': val_dice,
-                    f'folf'fold{fold_num}/lr': current_lr,
+                    f'fold{fold_num}/val_dice': val_dice,   
+                    f'fold{fold_num}/lr': current_lr,
                     'epoch': epoch
                 })
             
@@ -357,15 +415,12 @@ class Trainer:
             if val_dice > best_dice:
                 best_dice = val_dice
                 save_path = fold_dir / f'best_dice_model_fold{fold_num}.pth'
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 save_model(model, save_path)
                 print(f"New best dice score: {best_dice:.4f}, saved to {save_path}")
             
-            # 최고 성능 모델 저장 (Loss 기준)
             if val_loss < best_loss:
                 best_loss = val_loss
                 save_path = fold_dir / f'best_loss_model_fold{fold_num}.pth'
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 save_model(model, save_path)
                 print(f"New best validation loss: {best_loss:.4f}, saved to {save_path}")
             
