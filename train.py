@@ -1,4 +1,3 @@
-# train.py
 import os
 import torch
 import torch.nn as nn
@@ -12,6 +11,8 @@ import wandb
 import argparse
 import albumentations as A
 from torch.utils.data import DataLoader
+import yaml
+from pathlib import Path
 
 from config.config import Config
 from models.model import get_model
@@ -43,10 +44,28 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--patience', type=int, default=7,
+                      help='early stopping patience')
+    parser.add_argument('--min_delta', type=float, default=1e-4,
+                      help='minimum change in validation score to qualify as an improvement')
     
     # Augmentation args
     parser.add_argument('--use_augmentation', action='store_true',
                       help='whether to use data augmentation')
+    parser.add_argument('--aug_hflip_prob', type=float, default=0.5,
+                      help='horizontal flip probability')
+    parser.add_argument('--aug_vflip_prob', type=float, default=0.5,
+                      help='vertical flip probability')
+    parser.add_argument('--aug_rotate_prob', type=float, default=0.5,
+                      help='rotation probability')
+    parser.add_argument('--aug_brightness_prob', type=float, default=0.2,
+                      help='brightness adjustment probability')
+    parser.add_argument('--aug_contrast_prob', type=float, default=0.2,
+                      help='contrast adjustment probability')
+    parser.add_argument('--aug_noise_prob', type=float, default=0.2,
+                      help='gaussian noise probability')
+    parser.add_argument('--aug_dropout_prob', type=float, default=0.2,
+                      help='coarse dropout probability')
     
     # Wandb args
     parser.add_argument('--wandb_project', type=str, default='xray-segmentation')
@@ -54,6 +73,29 @@ def parse_args():
     parser.add_argument('--no_wandb', action='store_true')
     
     return parser.parse_args()
+
+class EarlyStopping:
+    def __init__(self, patience=7, min_delta=1e-4, verbose=True):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_score_min = float('inf')
+    
+    def __call__(self, val_score):
+        if self.best_score is None:
+            self.best_score = val_score
+        elif val_score < self.best_score + self.min_delta:
+            self.counter += 1
+            if self.verbose:
+                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = val_score
+            self.counter = 0
 
 class Trainer:
     def __init__(self, 
@@ -67,8 +109,48 @@ class Trainer:
         self.device = device
         
         # 결과 저장 디렉토리 생성
-        self.save_dir = "experiments"
-        os.makedirs(self.save_dir, exist_ok=True)
+        current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.save_dir = Path("experiments") / f"{current_time}_{args.model_name}_{args.encoder}"
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 설정 저장
+        self.save_config()
+        
+    def save_config(self):
+        """학습 설정 저장"""
+        config = {
+            'model': {
+                'name': self.args.model_name,
+                'encoder': self.args.encoder,
+                'encoder_weights': self.args.encoder_weights
+            },
+            'training': {
+                'batch_size': self.args.batch_size,
+                'num_epochs': self.args.num_epochs,
+                'learning_rate': self.args.lr,
+                'seed': self.args.seed,
+                'num_workers': self.args.num_workers,
+                'early_stopping_patience': self.args.patience,
+                'early_stopping_min_delta': self.args.min_delta
+            },
+            'augmentation': {
+                'enabled': self.args.use_augmentation,
+                'horizontal_flip_prob': self.args.aug_hflip_prob,
+                'vertical_flip_prob': self.args.aug_vflip_prob,
+                'rotate_prob': self.args.aug_rotate_prob,
+                'brightness_prob': self.args.aug_brightness_prob,
+                'contrast_prob': self.args.aug_contrast_prob,
+                'noise_prob': self.args.aug_noise_prob,
+                'dropout_prob': self.args.aug_dropout_prob
+            },
+            'data': {
+                'base_dir': self.args.base_dir,
+                'fold_dir': self.args.fold_dir
+            }
+        }
+        
+        with open(self.save_dir / 'config.yaml', 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
         
     def _init_model(self):
         """모델 초기화"""
@@ -80,14 +162,21 @@ class Trainer:
         if is_train and self.args.use_augmentation:
             return A.Compose([
                 A.Resize(512, 512),
-                # A.HorizontalFlip(p=0.5),
-                # A.VerticalFlip(p=0.5),
-                # A.RandomRotate90(p=0.5),
-                # A.ShiftScaleRotate(p=0.5),
-                # A.RandomBrightnessContrast(p=0.2),
-                # A.GaussNoise(p=0.2),
-                # A.GridDistortion(p=0.2),
-                # A.CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.2),
+                A.HorizontalFlip(p=self.args.aug_hflip_prob),
+                A.VerticalFlip(p=self.args.aug_vflip_prob),
+                A.RandomRotate90(p=self.args.aug_rotate_prob),
+                A.RandomBrightnessContrast(
+                    brightness_limit=0.2,
+                    contrast_limit=0.2,
+                    p=self.args.aug_brightness_prob
+                ),
+                A.GaussNoise(p=self.args.aug_noise_prob),
+                A.CoarseDropout(
+                    max_holes=8,
+                    max_height=32,
+                    max_width=32,
+                    p=self.args.aug_dropout_prob
+                ),
             ])
         else:
             return A.Compose([
@@ -133,6 +222,8 @@ class Trainer:
         """검증 수행"""
         model.eval()
         dice_scores = []
+        val_loss = 0
+        criterion = nn.BCEWithLogitsLoss()
         
         with torch.no_grad():
             with tqdm(val_loader, desc='Validation') as pbar:
@@ -145,11 +236,18 @@ class Trainer:
                     if outputs.shape != masks.shape:
                         outputs = F.interpolate(outputs, size=masks.shape[2:], mode='bilinear')
                     
+                    # Calculate validation loss
+                    loss = criterion(outputs, masks)
+                    val_loss += loss.item()
+                    
+                    outputs = outputs + 1.0
                     outputs = torch.sigmoid(outputs)
                     outputs = (outputs > threshold).float()
                     
                     dice = self._dice_coef(outputs, masks)
                     dice_scores.append(dice.cpu())
+                    
+                    pbar.set_postfix({'val_loss': f'{loss.item():.4f}'})
         
         dice_scores = torch.cat(dice_scores, 0)
         dice_per_class = torch.mean(dice_scores, 0)
@@ -158,8 +256,11 @@ class Trainer:
         print('\nDice scores for each class:')
         for class_name, dice_score in zip(self.config.CLASSES, dice_per_class):
             print(f'{class_name:<12}: {dice_score.item():.4f}')
+        
+        avg_val_loss = val_loss / len(val_loader)
+        print(f'Average validation loss: {avg_val_loss:.4f}')
             
-        return torch.mean(dice_per_class).item()
+        return torch.mean(dice_per_class).item(), avg_val_loss
     
     def train_fold(self, fold_num: int, fold_data: dict):
         """특정 fold에 대한 학습 수행"""
@@ -168,8 +269,8 @@ class Trainer:
         # Config 업데이트
         self.config.FOLD = fold_num
         self.config.EXP_NAME = f"{self.config.MODEL_NAME}_{self.config.ENCODER}_fold{fold_num}"
-        self.config.SAVED_DIR = os.path.join(self.save_dir, self.config.EXP_NAME)
-        os.makedirs(self.config.SAVED_DIR, exist_ok=True)
+        fold_dir = self.save_dir / f"fold_{fold_num}"
+        fold_dir.mkdir(parents=True, exist_ok=True)
         
         # Transform 준비
         train_transform = self._get_transforms(is_train=True)
@@ -201,6 +302,9 @@ class Trainer:
         optimizer = optim.AdamW(model.parameters(), lr=self.config.LEARNING_RATE, weight_decay=1e-2)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, verbose=True)
         
+        # Early Stopping 초기화
+        early_stopping = EarlyStopping(patience=self.args.patience, min_delta=self.args.min_delta)
+        
         # wandb 초기화
         if not self.args.no_wandb:
             wandb.init(
@@ -212,6 +316,11 @@ class Trainer:
             )
         
         best_dice = 0
+        best_loss = float('inf')
+        
+        # 학습 기록을 위한 log 파일 생성
+        log_file = fold_dir / 'training_log.txt'
+        
         for epoch in range(self.num_epochs):
             print(f"\nEpoch {epoch+1}/{self.num_epochs}")
             
@@ -219,30 +328,62 @@ class Trainer:
             train_loss = self._train_epoch(model, train_loader, criterion, optimizer)
             
             # 검증
-            val_dice = self._validate(model, val_loader)
+            val_dice, val_loss = self._validate(model, val_loader)
             
             # Learning rate 조정
             scheduler.step(val_dice)
+            current_lr = optimizer.param_groups[0]['lr']
             
-            # Logging
+            # 로그 저장
+            log_entry = f"Epoch {epoch+1}: Train Loss={train_loss:.4f}, Val Loss={val_loss:.4f}, "
+            log_entry += f"Val Dice={val_dice:.4f}, LR={current_lr:.6f}\n"
+            with open(log_file, 'a') as f:
+                f.write(log_entry)
+            
+            # Logging to wandb
             if not self.args.no_wandb:
                 wandb.log({
                     f'fold{fold_num}/train_loss': train_loss,
+                    f'fold{fold_num}/val_loss': val_loss,
                     f'fold{fold_num}/val_dice': val_dice,
-                    f'fold{fold_num}/lr': optimizer.param_groups[0]['lr'],
+                    f'fold{fold_num}/lr': current_lr,
                     'epoch': epoch
                 })
             
-            print(f"Train Loss: {train_loss:.4f}, Val Dice: {val_dice:.4f}")
+            print(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Dice: {val_dice:.4f}, LR: {current_lr:.6f}")
             
-            # 최고 성능 모델 저장
+            # 최고 성능 모델 저장 (Dice Score 기준)
             if val_dice > best_dice:
                 best_dice = val_dice
-                save_model(model, self.config.SAVED_DIR, f'best_model_fold{fold_num}.pth')
-                print(f"New best dice score: {best_dice:.4f}")
+                save_path = fold_dir / f'best_dice_model_fold{fold_num}.pth'
+                save_model(model, save_path)
+                print(f"New best dice score: {best_dice:.4f}, saved to {save_path}")
+            
+            # 최고 성능 모델 저장 (Loss 기준)
+            if val_loss < best_loss:
+                best_loss = val_loss
+                save_path = fold_dir / f'best_loss_model_fold{fold_num}.pth'
+                save_model(model, save_path)
+                print(f"New best validation loss: {best_loss:.4f}, saved to {save_path}")
+            
+            # Early stopping 조건 확인
+            if early_stopping.early_stop:
+                print("Early stopping triggered")
+                break
         
         if not self.args.no_wandb:
             wandb.finish()
+            
+        # 최종 결과 저장
+        results = {
+            'best_dice': best_dice,
+            'best_loss': best_loss,
+            'final_lr': current_lr,
+            'epochs_trained': epoch + 1
+        }
+        
+        with open(fold_dir / 'results.json', 'w') as f:
+            json.dump(results, f, indent=4)
             
         return best_dice
 
