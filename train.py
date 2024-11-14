@@ -22,55 +22,63 @@ from utils.utils import set_seed, save_model
 def parse_args():
     parser = argparse.ArgumentParser(description='Training script for segmentation')
     
-    # Data args
+    # 데이터 관련 인자들
     parser.add_argument('--base_dir', type=str, default='/data/ephemeral/home/data',
-                      help='base directory containing data')
+                      help='학습 데이터가 저장된 기본 디렉토리 경로')
     parser.add_argument('--fold_dir', type=str, default='/data/ephemeral/home/data/kfold_splits',
-                      help='directory containing fold splits')
+                      help='K-fold 분할 정보가 저장된 디렉토리 경로')
     parser.add_argument('--fold', type=int, default=None,
-                      help='specific fold to train (None for all folds)')
+                      help='학습할 특정 fold 번호 (None일 경우 모든 fold 학습)')
     
-    # Model args
+    # 모델 관련 인자들
     parser.add_argument('--model_name', type=str, default='UnetPlusPlus',
-                      help='model architecture')
+                      help='사용할 모델 아키텍처 이름 (예: Unet, UnetPlusPlus, DeepLabV3 등)')
     parser.add_argument('--encoder', type=str, default='efficientnet-b0',
-                      help='encoder backbone')
+                      help='모델의 인코더 백본 (예: efficientnet-b0, resnet50 등)')
     parser.add_argument('--encoder_weights', type=str, default='imagenet',
-                      help='pretrained weights for encoder')
+                      help='인코더의 사전학습 가중치 (예: imagenet, None 등)')
     
-    # Training args
-    parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--num_epochs', type=int, default=50)
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--num_workers', type=int, default=4)
+    # 학습 관련 인자들
+    parser.add_argument('--batch_size', type=int, default=8,
+                      help='배치 크기')
+    parser.add_argument('--num_epochs', type=int, default=50,
+                      help='총 학습 에폭 수')
+    parser.add_argument('--lr', type=float, default=1e-4,
+                      help='학습률 (learning rate)')
+    parser.add_argument('--seed', type=int, default=42,
+                      help='재현성을 위한 랜덤 시드')
+    parser.add_argument('--num_workers', type=int, default=4,
+                      help='데이터 로딩에 사용할 워커 수')
     parser.add_argument('--patience', type=int, default=7,
-                      help='early stopping patience')
+                      help='Early Stopping을 위한 인내심 값 (성능 개선이 없을 때 기다릴 에폭 수)')
     parser.add_argument('--min_delta', type=float, default=1e-4,
-                      help='minimum change in validation score to qualify as an improvement')
+                      help='성능 개선으로 간주할 최소 변화량')
     
-    # Augmentation args
+    # 데이터 증강 관련 인자들
     parser.add_argument('--use_augmentation', action='store_true',
-                      help='whether to use data augmentation')
+                      help='데이터 증강 사용 여부 (True/False)')
     parser.add_argument('--aug_hflip_prob', type=float, default=0.5,
-                      help='horizontal flip probability')
+                      help='수평 뒤집기 확률')
     parser.add_argument('--aug_vflip_prob', type=float, default=0.5,
-                      help='vertical flip probability')
+                      help='수직 뒤집기 확률')
     parser.add_argument('--aug_rotate_prob', type=float, default=0.5,
-                      help='rotation probability')
+                      help='회전 변환 확률')
     parser.add_argument('--aug_brightness_prob', type=float, default=0.2,
-                      help='brightness adjustment probability')
+                      help='밝기 조정 확률')
     parser.add_argument('--aug_contrast_prob', type=float, default=0.2,
-                      help='contrast adjustment probability')
+                      help='대비 조정 확률')
     parser.add_argument('--aug_noise_prob', type=float, default=0.2,
-                      help='gaussian noise probability')
+                      help='가우시안 노이즈 추가 확률')
     parser.add_argument('--aug_dropout_prob', type=float, default=0.2,
-                      help='coarse dropout probability')
+                      help='Coarse Dropout 적용 확률')
     
-    # Wandb args
-    parser.add_argument('--wandb_project', type=str, default='xray-segmentation')
-    parser.add_argument('--wandb_entity', type=str, default=None)
-    parser.add_argument('--no_wandb', action='store_true')
+    # Wandb 관련 인자들
+    parser.add_argument('--wandb_project', type=str, default='xray-segmentation',
+                      help='Weights & Biases 프로젝트 이름')
+    parser.add_argument('--wandb_entity', type=str, default=None,
+                      help='Weights & Biases 엔티티(팀/개인) 이름')
+    parser.add_argument('--no_wandb', action='store_true',
+                      help='Weights & Biases 로깅 비활성화 여부')
     
     return parser.parse_args()
 
