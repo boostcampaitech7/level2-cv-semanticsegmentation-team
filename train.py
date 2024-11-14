@@ -250,6 +250,7 @@ class Trainer:
                     val_loss += loss.item()
                     
                     # Apply sigmoid and threshold
+                    outputs = outputs + 1
                     outputs = torch.sigmoid(outputs)
                     outputs = (outputs > threshold).float()
                     
