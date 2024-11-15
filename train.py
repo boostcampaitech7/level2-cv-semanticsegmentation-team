@@ -23,9 +23,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Training script for segmentation')
     
     # 데이터 관련 인자들
-    parser.add_argument('--base_dir', type=str, default='/data/ephemeral/home/data',
+    parser.add_argument('--base_dir', type=str, default='/data/ephemeral/home/000TEST/custom_data',
                       help='학습 데이터가 저장된 기본 디렉토리 경로')
-    parser.add_argument('--fold_dir', type=str, default='/data/ephemeral/home/data/kfold_splits',
+    parser.add_argument('--fold_dir', type=str, default='/data/ephemeral/home/000TEST/custom_data/kfold_splits',
                       help='K-fold 분할 정보가 저장된 디렉토리 경로')
     parser.add_argument('--fold', type=int, default=None,
                       help='학습할 특정 fold 번호 (None일 경우 모든 fold 학습)')

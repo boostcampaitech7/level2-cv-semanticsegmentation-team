@@ -6,6 +6,7 @@ import json
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+import struct
 
 class XRayDataset(Dataset):
     def __init__(self, 
@@ -16,6 +17,8 @@ class XRayDataset(Dataset):
         self.config = config
         self.is_train = is_train
         self.transforms = transforms
+        
+        self.num_classes = len(config.CLASSES)
         
         # Load fold data
         if isinstance(fold_data, dict):
@@ -33,19 +36,35 @@ class XRayDataset(Dataset):
             
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, idx):
         item = self.data[idx]
         
         # Load image
         image_path = os.path.join(self.config.BASE_DIR, item['image_path'])
-        image = cv2.imread(image_path)
+        # image = cv2.imread(image_path)
+        image =np.load(image_path)
         image = image / 255.
+        
+        if len(image.shape) == 2:  # (H, W) 형태일 경우
+            image = np.stack([image] * 3, axis=-1)  # (H, W, 3) 형태로 확장
         
         if self.is_train or not self.is_train:  # validation에도 레이블 필요
             # Load label
-            json_path = os.path.join(self.config.BASE_DIR, item['json_path'])
-            label = self._load_label(json_path, image.shape)
+            bin_path = os.path.join(self.config.BASE_DIR, item['json_path'])  # item['json_path'] 'json_path'의 value는 바꿔뒀는데, key는 혹시 몰라서 안바꿈
+            # label = self._load_label(json_path, image.shape)
+            
+            # .bin 파일에서 헤더 읽기
+            with open(bin_path, "rb") as f:
+                height, width = struct.unpack('ii', f.read(8))
+                packed_mask = np.frombuffer(f.read(), dtype=np.uint8)
+            
+            # 비트 언팩 후 (height, width, num_classes) 형태로 변환
+            flat_mask = np.unpackbits(packed_mask)[:height * width * self.num_classes]
+            label = flat_mask.reshape((height, width, self.num_classes))
+            
+            # 이미지와 라벨 크기 일치 여부 확인
+            assert image.shape[:2] == (height, width), f"Image shape {image.shape[:2]} and label shape {(height, width)} do not match"
             
             if self.transforms:
                 transformed = self.transforms(image=image, mask=label)
@@ -65,20 +84,3 @@ class XRayDataset(Dataset):
             
             image = image.transpose(2, 0, 1)
             return torch.from_numpy(image).float()
-    
-    def _load_label(self, json_path: str, image_shape: tuple) -> np.ndarray:
-        label = np.zeros(image_shape[:2] + (len(self.config.CLASSES),), dtype=np.uint8)
-        
-        with open(json_path, 'r') as f:
-            data = json.load(f)
-            annotations = data['annotations']
-            
-        for ann in annotations:
-            class_idx = self.config.CLASS2IND[ann['label']]
-            points = np.array(ann['points'])
-            
-            class_label = np.zeros(image_shape[:2], dtype=np.uint8)
-            cv2.fillPoly(class_label, [points], 1)
-            label[..., class_idx] = class_label
-            
-        return label
