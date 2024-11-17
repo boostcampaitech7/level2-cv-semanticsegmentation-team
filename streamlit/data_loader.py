@@ -4,17 +4,23 @@ import numpy as np
 import json
 import cv2
 
+
 def rle_to_mask(rle, height, width):
     """RLE (Run-Length Encoding)를 마스크로 변환하는 함수."""
+    # 빈 마스크 생성
     mask = np.zeros(height * width, dtype=np.uint8)
+    
+    # RLE 문자열을 숫자로 변환
     rle_numbers = [int(num) for num in rle.split()]
     rle_pairs = np.array(rle_numbers).reshape(-1, 2)
     
+    # RLE 쌍을 사용하여 마스크 생성
     for start, length in rle_pairs:
-        start -= 1
+        start -= 1  # RLE 인덱스는 1부터 시작하므로 조정
         mask[start:start + length] = 1
-        
-    mask = mask.reshape((height, width)).T
+    
+    # 올바르게 reshape (세로가 height, 가로가 width)
+    mask = mask.reshape((height, width))
     return mask
 
 def extract_annotations_from_csv(csv_path, image_name, height, width):
