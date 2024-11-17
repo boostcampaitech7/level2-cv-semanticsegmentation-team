@@ -41,8 +41,13 @@ def load_test_data():
         for test_id in test_ids
     }
     # CSV 파일을 읽고 DataFrame으로 반환
-    test_predictions = pd.read_csv(TEST_CSV_PATH)
+    try:
+        test_predictions = pd.read_csv(TEST_CSV_PATH)
+    except Exception as e:
+        st.error(f"Error loading CSV file: {e}")
+        test_predictions = None
     return test_ids, test_images, test_predictions
+
 
 # 데이터 로드
 train_ids, train_images = load_train_data()
@@ -51,25 +56,18 @@ test_ids, test_images, test_predictions = load_test_data()
 # 탭 구성
 tab1, tab2, tab3 = st.tabs(["Train Data Visualization", "Test Data Visualization", "Validation Data Visualization"])
 
-
-
 # 탭 1: 훈련 데이터 시각화
 with tab1:
     st.header("Train Data Visualization")
     
-    # TRAIN_DCM_DIR = os.path.join(BASE_DIR, "data", "train", "DCM")
-    # TRAIN_JSON_DIR = os.path.join(BASE_DIR, "data", "train", "outputs_json")
-    
-    ids = sorted(os.listdir(TRAIN_DCM_DIR))
-    selected_id = st.selectbox("Select ID", ids)
-
-    if selected_id:
-        image_files = sorted([f for f in os.listdir(os.path.join(TRAIN_DCM_DIR, selected_id)) if f.endswith(".png")])
-        selected_image = st.selectbox("Select Image", image_files)
+    selected_train_id = st.selectbox("Select Train ID", train_ids)
+    if selected_train_id:
+        train_image_files = train_images[selected_train_id]
+        selected_train_image = st.selectbox("Select Train Image", train_image_files)
         
-        if selected_image:
-            image_path = os.path.join(TRAIN_DCM_DIR, selected_id, selected_image)
-            json_path = os.path.join(TRAIN_JSON_DIR, selected_id, selected_image.replace(".png", ".json"))
+        if selected_train_image:
+            image_path = os.path.join(TRAIN_DCM_DIR, selected_train_id, selected_train_image)
+            json_path = os.path.join(TRAIN_JSON_DIR, selected_train_id, selected_train_image.replace(".png", ".json"))
             
             # 이미지 및 JSON 로드
             image = np.array(Image.open(image_path))
@@ -83,27 +81,83 @@ with tab1:
 with tab2:
     st.header("Test Data Visualization")
     
-    ids = sorted(os.listdir(TEST_IMG_DIR))
-    selected_id = st.selectbox("Select Test ID", ids)
+    selected_test_id = st.selectbox("Select Test ID", test_ids)
+    if selected_test_id:
+        test_image_files = test_images[selected_test_id]
+        selected_test_image = st.selectbox("Select Test Image", test_image_files)
+        
+        if selected_test_image:
+            image_path = os.path.join(TEST_IMG_DIR, selected_test_id, selected_test_image)
+            image = np.array(Image.open(image_path))
+            height, width = image.shape[:2]
+            
+            # 예측 데이터 필터링
+            if test_predictions is not None:
+                predictions = extract_annotations_from_csv(
+                    test_predictions, selected_test_image, height, width
+                )
+            else:
+                predictions = []
+            
+            # 예측 시각화
+            if predictions:
+                annotated_image = draw_annotations(image.copy(), predictions)
+                st.image(annotated_image, caption="Predictions", use_column_width=True)
+            else:
+                st.write("No predictions found for this image.")
 
-    if selected_id:
-        image_files = sorted([f for f in os.listdir(os.path.join(TEST_IMG_DIR, selected_id)) if f.endswith(".png")])
-        selected_image = st.selectbox("Select Image", image_files)
 
-        # 선택된 이미지 로드
-        image_path = os.path.join(TEST_IMG_DIR, selected_id, selected_image)
-        image = np.array(Image.open(image_path))
-        height, width = image.shape[:2]
+# # 탭 1: 훈련 데이터 시각화
+# with tab1:
+#     st.header("Train Data Visualization")
+    
+#     # TRAIN_DCM_DIR = os.path.join(BASE_DIR, "data", "train", "DCM")
+#     # TRAIN_JSON_DIR = os.path.join(BASE_DIR, "data", "train", "outputs_json")
+    
+#     ids = sorted(os.listdir(TRAIN_DCM_DIR))
+#     selected_id = st.selectbox("Select ID", ids)
 
-        # CSV에서 예측 정보 가져오기
-        predictions = extract_annotations_from_csv(TEST_CSV_PATH, selected_image, height, width)
+#     if selected_id:
+#         image_files = sorted([f for f in os.listdir(os.path.join(TRAIN_DCM_DIR, selected_id)) if f.endswith(".png")])
+#         selected_image = st.selectbox("Select Image", image_files)
+        
+#         if selected_image:
+#             image_path = os.path.join(TRAIN_DCM_DIR, selected_id, selected_image)
+#             json_path = os.path.join(TRAIN_JSON_DIR, selected_id, selected_image.replace(".png", ".json"))
+            
+#             # 이미지 및 JSON 로드
+#             image = np.array(Image.open(image_path))
+#             annotations = load_json_annotations(json_path)
+            
+#             # 어노테이션 시각화
+#             annotated_image = draw_annotations(image, annotations)
+#             st.image(annotated_image, caption="Ground Truth", use_column_width=True)
 
-        # 예측 시각화
-        if predictions:
-            annotated_image = draw_annotations(image.copy(), predictions)
-            st.image(annotated_image, caption="Predictions", use_column_width=True)
-        else:
-            st.write("No predictions found for this image.")
+# # 탭 2: 테스트 데이터 시각화
+# with tab2:
+#     st.header("Test Data Visualization")
+    
+#     ids = sorted(os.listdir(TEST_IMG_DIR))
+#     selected_id = st.selectbox("Select Test ID", ids)
+
+#     if selected_id:
+#         image_files = sorted([f for f in os.listdir(os.path.join(TEST_IMG_DIR, selected_id)) if f.endswith(".png")])
+#         selected_image = st.selectbox("Select Image", image_files)
+
+#         # 선택된 이미지 로드
+#         image_path = os.path.join(TEST_IMG_DIR, selected_id, selected_image)
+#         image = np.array(Image.open(image_path))
+#         height, width = image.shape[:2]
+
+#         # CSV에서 예측 정보 가져오기
+#         predictions = extract_annotations_from_csv(TEST_CSV_PATH, selected_image, height, width)
+
+#         # 예측 시각화
+#         if predictions:
+#             annotated_image = draw_annotations(image.copy(), predictions)
+#             st.image(annotated_image, caption="Predictions", use_column_width=True)
+#         else:
+#             st.write("No predictions found for this image.")
 
 
 # 탭 3: 검증 데이터 시각화
