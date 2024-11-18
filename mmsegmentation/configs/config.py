@@ -15,17 +15,19 @@ model = dict(
 )
 
 # 데이터셋 설정
-dataset_type = 'XRayDataset'
-data_root = '/data/ephemeral/home/data/'
+dataset_type = 'ADE20KDataset'
+data_root = '/data/ephemeral/home/data/ade20k_format'
 
 train_dataloader = dict(
     batch_size=2,  # Smoke Test를 위한 작은 배치 크기
     num_workers=1,  # 데이터 로드에 사용할 워커 수
     dataset=dict(
-        type='XRayDataset',
-        data_root='/data/ephemeral/home/data/',
-        img_dir='train/DCM',
-        ann_dir='train/outputs_json',
+        type=dataset_type,
+        data_root=data_root,
+        data_prefix=dict(
+            img_path='images/training',  # ADE20K 포맷에 맞춘 이미지 경로
+            seg_map_path='annotations/training',  # ADE20K 포맷에 맞춘 주석 경로
+        ),
         pipeline=[
             dict(type='LoadImageFromFile'),
             dict(type='LoadAnnotations'),
@@ -41,10 +43,12 @@ val_dataloader = dict(
     batch_size=1,
     num_workers=1,
     dataset=dict(
-        type='XRayDataset',
-        data_root='/data/ephemeral/home/data/',
-        img_dir='train/DCM',
-        ann_dir='train/outputs_json',
+        type=dataset_type,
+        data_root=data_root,
+        data_prefix=dict(
+            img_path='images/validation',  # ADE20K 포맷에 맞춘 이미지 경로
+            seg_map_path='annotations/validation',  # ADE20K 포맷에 맞춘 주석 경로
+        ),
         pipeline=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
@@ -59,9 +63,11 @@ test_dataloader = dict(
     batch_size=1,
     num_workers=1,
     dataset=dict(
-        type='XRayDataset',
-        data_root='/data/ephemeral/home/data/',
-        img_dir='test/DCM',
+        type=dataset_type,
+        data_root=data_root,
+        data_prefix=dict(
+            img_path='images/validation',  # 테스트도 validation과 동일하게 설정
+        ),
         pipeline=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
