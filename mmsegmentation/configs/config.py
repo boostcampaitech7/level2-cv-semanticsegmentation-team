@@ -1,82 +1,85 @@
 _base_ = [
-    '/data/ephemeral/home/mmsegmentation/configs/_base_/models/fcn_unet_s5-d16.py',
-    '/data/ephemeral/home/mmsegmentation/configs/_base_/default_runtime.py',
-    '/data/ephemeral/home/mmsegmentation/configs/_base_/schedules/schedule_20k.py'
+    '/data/ephemeral/home/mmsegmentation/configs/knet/knet-s3_r50-d8_fcn_8xb2-adamw-80k_ade20k-512x512.py'
 ]
+
+crop_size = (1024, 1024)
+data_preprocessor = dict(
+    _delete_=True,  # 기존 설정 삭제
+    type='SegDataPreProcessor',
+    mean=[123.675, 116.28, 103.53],
+    std=[58.395, 57.12, 57.375],
+    bgr_to_rgb=True,
+    pad_val=0,
+    size=crop_size,
+    seg_pad_val=255)
 
 # 모델 수정
 model = dict(
     decode_head=dict(
-        num_classes=29  # 클래스 수
+        kernel_update_head=[
+            dict(
+                type='KernelUpdateHead',  # `type` 키를 추가
+                num_classes=29,  # 새로운 클래스 수
+                kernel_updator_cfg=dict(
+                    type='KernelUpdator'
+                )) for _ in range(3)  # 모든 스테이지에서 업데이트 보장
+        ],
+        kernel_generate_head=dict(
+            type='FCNHead',  # `type` 키를 추가
+            num_classes=29  # kernel_generate_head의 클래스 수 업데이트
+        ),
     ),
     auxiliary_head=dict(
-        num_classes=29  # 클래스 수
-    )
+        type='FCNHead',  # `type` 키를 추가
+        num_classes=29  # 보조 헤드의 클래스 수 업데이트
+    ),
 )
 
-# 데이터셋 설정
-dataset_type = 'ADE20KDataset'
-data_root = '/data/ephemeral/home/data/ade20k_format'
 
+# 데이터 설정
 train_dataloader = dict(
-    batch_size=2,  # Smoke Test를 위한 작은 배치 크기
-    num_workers=1,  # 데이터 로드에 사용할 워커 수
+    _delete_=True,  # 기존 설정 삭제
+    batch_size=2,
+    num_workers=2,
     dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
+        type='ADE20KDataset',
+        data_root='/data/ephemeral/home/data/ade20k_format',
         data_prefix=dict(
-            img_path='images/training',  # ADE20K 포맷에 맞춘 이미지 경로
-            seg_map_path='annotations/training',  # ADE20K 포맷에 맞춘 주석 경로
+            img_path='images/training',
+            seg_map_path='annotations/training',
         ),
         pipeline=[
             dict(type='LoadImageFromFile'),
-            dict(type='LoadAnnotations'),
+            dict(type='LoadAnnotations', reduce_zero_label=True),
             dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
             dict(type='RandomRotate', prob=0.5, degree=(-30, 30)),
-            dict(type='Normalize', mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True),
-        ]
+            dict(type='PackSegInputs'),
+        ],
     ),
-    sampler=dict(type='DefaultSampler', shuffle=True)
+    sampler=dict(type='DefaultSampler', shuffle=True),
 )
 
 val_dataloader = dict(
+    _delete_=True,  # 기존 설정 삭제
     batch_size=1,
-    num_workers=1,
+    num_workers=4,
     dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
+        type='ADE20KDataset',
+        data_root='/data/ephemeral/home/data/ade20k_format',
         data_prefix=dict(
-            img_path='images/validation',  # ADE20K 포맷에 맞춘 이미지 경로
-            seg_map_path='annotations/validation',  # ADE20K 포맷에 맞춘 주석 경로
+            img_path='images/validation',
+            seg_map_path='annotations/validation',
         ),
         pipeline=[
             dict(type='LoadImageFromFile'),
             dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
-            dict(type='Normalize', mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True),
-            dict(type='ImageToTensor', keys=['img']),
-        ]
+            dict(type='LoadAnnotations', reduce_zero_label=True),
+            dict(type='PackSegInputs'),
+        ],
     ),
-    sampler=dict(type='DefaultSampler', shuffle=False)
+    sampler=dict(type='DefaultSampler', shuffle=False),
 )
-
-test_dataloader = dict(
-    batch_size=1,
-    num_workers=1,
-    dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
-        data_prefix=dict(
-            img_path='images/validation',  # 테스트도 validation과 동일하게 설정
-        ),
-        pipeline=[
-            dict(type='LoadImageFromFile'),
-            dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
-            dict(type='Normalize', mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True),
-            dict(type='ImageToTensor', keys=['img']),
-        ]
-    ),
-    sampler=dict(type='DefaultSampler', shuffle=False)
-)
+test_dataloader = val_dataloader
 
 # 평가 지표 설정 (val_evaluator)
 val_evaluator = dict(
@@ -84,11 +87,21 @@ val_evaluator = dict(
     iou_merics=['mDice'],    # 클래스별 Dice를 평균
     ignore_index=None   # 무시할 클래스가 없는 경우
 )
-
 test_evaluator = val_evaluator
 
 # 학습 설정
-runner = dict(type='EpochBasedRunner', max_epochs=50)
+train_cfg = dict(
+    _delete_=True,  # 기존 설정 삭제
+    type='EpochBasedTrainLoop',
+    max_epochs=1
+)
+# 평가 시 출력 크기를 맞추는 설정 추가
+test_cfg=dict(
+    _delete_=True,  # 기존 설정 삭제
+    resize=True,  # 모델 출력 크기를 레이블 크기에 맞게 보강
+    size=(1024, 1024),  # 평가 시 출력 크기
+    mode="whole"  # 전체 이미지를 한 번에 처리
+)
 
 log_config = dict(
     interval=10,
