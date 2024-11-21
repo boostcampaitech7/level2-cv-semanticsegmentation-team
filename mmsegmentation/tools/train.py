@@ -7,6 +7,10 @@ from mmengine.config import Config
 from mmengine.runner import Runner
 import wandb
 
+# 고정값 설정
+DEFAULT_CONFIG_PATH = "configs/config.py"
+DEFAULT_DATA_ROOT = "/data/ephemeral/home/data"
+
 def load_fold_data(fold_path: str):
     """Load train and validation data from fold JSON file."""
     with open(fold_path, 'r') as f:
@@ -33,32 +37,21 @@ def set_xraydataset_from_fold(config, fold_path, data_root):
     return config
 
 def parse_args():
-    """CLI arguments for smoke test."""
-    parser = argparse.ArgumentParser(description="Run Smoke Test for MMsegmentation")
-    parser.add_argument(
-        "--config",
-        required=True,
-        help="Path to the config file"
-    )
+    """CLI arguments for train."""
+    parser = argparse.ArgumentParser(description="Train for MMsegmentation")
     parser.add_argument(
         "--fold-path",
         required=True,
         help="Path to the JSON file defining train/validation splits"
     )
     parser.add_argument(
-        "--data-root",
-        required=True,
-        help="Root directory containing the dataset"
-    )
-    parser.add_argument(
         "--work-dir",
-        default=None,
+        required=True,
         help="Directory to save logs and models"
     )
-
     return parser.parse_args()
 
-def run_smoke_test(args):
+def train(args):
     """
     Smoke Test: 기본 동작 확인을 위한 빠른 실행.
     
@@ -66,34 +59,22 @@ def run_smoke_test(args):
         args: CLI arguments containing config path, fold path, and work_dir.
     """
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("SmokeTest")
+    logger = logging.getLogger("Train")
 
     # Config 파일 로드
-    cfg = Config.fromfile(args.config)
-    cfg = set_xraydataset_from_fold(cfg, args.fold_path, args.data_root)
-    logger.info(f"Loaded config from {args.config} and fold data from {args.fold_path}")
+    cfg = Config.fromfile(DEFAULT_CONFIG_PATH)
+    cfg = set_xraydataset_from_fold(cfg, args.fold_path, DEFAULT_DATA_ROOT)
 
     cfg.launcher = "none"
-
-    # Set up working dir to save files and logs.
-    if args.work_dir is not None:
-        # CLI로 전달된 work_dir 사용
-        cfg.work_dir = args.work_dir
-    elif cfg.get('work_dir', None) is None:
-        # config 파일 이름을 기본 work_dir로 사용
-        cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0])
-    else:
-        # Config 파일에 정의된 work_dir 사용
-        cfg.work_dir = cfg.work_dir
-
-    logger.info(f"Work directory: {cfg.work_dir}")
+    
+    # 작업 디렉토리 설정
+    cfg.work_dir = args.work_dir
 
     runner = Runner.from_cfg(cfg)
 
     # 학습 시작
-    logger.info("Starting smoke test training...")
+    logger.info("Starting training...")
     runner.train()
-    logger.info("Smoke test completed successfully.")
 
 if __name__ == "__main__":
     wandb.login(key="97ae30a3f47da7ce905379af5f6bfc8d2d4dd531")
@@ -102,4 +83,4 @@ if __name__ == "__main__":
     args = parse_args()
 
     # Smoke Test 실행
-    run_smoke_test(args)
+    train(args)
