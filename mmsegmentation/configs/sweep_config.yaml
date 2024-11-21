@@ -1,0 +1,20 @@
+method: bayes  # Bayesian Optimization 방식
+metric:
+  name: val/DiceMetric  # 검증 지표 이름
+  goal: maximize        # 최대화
+parameters:
+  optimizer:
+    lr:
+      distribution: uniform  # 연속적인 값 범위를 지정
+      min: 0.00003
+      max: 0.0001
+    weight_decay:
+      values: [0.01, 0.001]  # 이산적인 후보값
+  param_scheduler_0_end:
+    values: [1000, 1500, 2000]  # 이산적인 후보값
+  param_scheduler_1_power:
+    distribution: uniform  # 연속적인 값 범위를 지정
+    min: 0.8
+    max: 1.2
+  batch_size:
+    values: [1, 2, 4]  # 이산적인 후보값
