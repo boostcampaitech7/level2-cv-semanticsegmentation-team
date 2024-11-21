@@ -31,18 +31,6 @@ def set_xraydataset(config):
 
     return config
 
-def inference(rles, filename_and_class):
-    classes, filename = zip(*[x.split("_") for x in filename_and_class])
-    image_name = [os.path.basename(f) for f in filename]
-    df = pd.DataFrame(
-        {
-            "image_name": image_name,
-            "class": classes,
-            "rle": rles,
-        }
-    )
-    df.to_csv("output.csv", index=False)
-
 # Argument parser 설정
 parser = argparse.ArgumentParser(description="MMsegmentation Runner")
 parser.add_argument('--config', type=str, required=True, help='Path to the config file.')
@@ -79,5 +67,3 @@ logger.info("Model loaded successfully.")
 runner = Runner.from_cfg(cfg)
 logger.info("Runner initialized. Starting test...")
 runner.test()
-rles, filename_and_class = runner.test_evaluator.metrics[0].get_results()
-inference(rles, filename_and_class)
