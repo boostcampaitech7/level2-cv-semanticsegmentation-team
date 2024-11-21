@@ -1,20 +1,19 @@
-method: bayes  # Bayesian Optimization 방식
+program: tools/train.py
+method: bayes  # 탐색 방법: 'grid', 'random', 'bayes'
 metric:
-  name: val/DiceMetric  # 검증 지표 이름
-  goal: maximize        # 최대화
+  name: mDice  # 최적화할 지표
+  goal: maximize   # 최대화
 parameters:
-  optimizer:
-    lr:
-      distribution: uniform  # 연속적인 값 범위를 지정
-      min: 0.00003
-      max: 0.0001
-    weight_decay:
-      values: [0.01, 0.001]  # 이산적인 후보값
-  param_scheduler_0_end:
-    values: [1000, 1500, 2000]  # 이산적인 후보값
-  param_scheduler_1_power:
-    distribution: uniform  # 연속적인 값 범위를 지정
-    min: 0.8
-    max: 1.2
-  batch_size:
-    values: [1, 2, 4]  # 이산적인 후보값
+  lr:
+    distribution: float_uniform  # 부동소수점 값으로 지정
+    min: 1e-5       # 최소 학습률
+    max: 1e-3       # 최대 학습률
+  weight_decay:
+    distribution: float_uniform  # 부동소수점 값으로 지정
+    min: 1e-4       # 최소 Weight Decay
+    max: 1e-2       # 최대 Weight Decay
+early_terminate:
+  type: hyperband
+  s: 3
+  eta: 2
+  max_iter: 10
