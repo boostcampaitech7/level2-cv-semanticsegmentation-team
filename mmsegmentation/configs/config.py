@@ -1,5 +1,6 @@
 _base_ = [
     '/data/ephemeral/home/mmsegmentation/configs/segformer/segformer_mit-b0_8xb2-160k_ade20k-512x512.py',
+    '/data/ephemeral/home/github/mmsegmentation/configs/config_dataset.py',
 ]
 
 crop_size = (1024, 1024)
@@ -33,10 +34,10 @@ model = dict(
 train_cfg = dict(
     _delete_=True,  # 기존 설정 삭제
     type='EpochBasedTrainLoop',
-    max_epochs=1
+    max_epochs=30
 )
 
 default_hooks = dict(
     logger=dict(type='LoggerHook', log_metric_by_epoch=True),
-    checkpoint=dict(type='CheckpointHook', by_epoch=True, max_keep_ckpts=1, save_best='DiceMetric', rule='greater'),
+    checkpoint=dict(type='CheckpointHook', by_epoch=True, max_keep_ckpts=1, save_best='mDice', rule='greater'),
     wandb_logger=dict(type='WandBLoggerHook', interval=10))
