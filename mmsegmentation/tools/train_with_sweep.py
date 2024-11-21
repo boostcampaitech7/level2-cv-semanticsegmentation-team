@@ -87,7 +87,7 @@ if __name__ == "__main__":
         "method": "bayes",
         "metric": {"goal": "maximize", "name": "mDice"},
         "parameters": {
-            "lr": {"max": 1e-3, "min": 1e-5, "distribution": "uniform"},
+            "lr": {"max": 1e-2, "min": 1e-4, "distribution": "uniform"},
             "weight_decay": {"max": 1e-2, "min": 1e-4, "distribution": "uniform"}
         },
         "early_terminate":{
