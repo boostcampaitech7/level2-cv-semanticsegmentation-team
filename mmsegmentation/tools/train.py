@@ -1,44 +1,105 @@
-import wandb
+import json
+import os
+import os.path as osp
+import argparse
+import logging
 from mmengine.config import Config
-from mmseg.apis import init_segmentor, train_segmentor
+from mmengine.runner import Runner
+import wandb
 
-wandb.login(key="97ae30a3f47da7ce905379af5f6bfc8d2d4dd531")
+def load_fold_data(fold_path: str):
+    """Load train and validation data from fold JSON file."""
+    with open(fold_path, 'r') as f:
+        fold_data = json.load(f)
+    return fold_data['train'], fold_data['validation']
 
-# WandB Sweep 초기화
-wandb.init(project="semantic_segmentation/mmseg/smoke-test")
+def set_xraydataset_from_fold(config, fold_path, data_root):
+    """Set train and validation datasets from JSON fold file."""
+    train_data, val_data = load_fold_data(fold_path)
 
-# Sweep에서 전달받은 파라미터 가져오기
-sweep_config = wandb.config
+    # Extract image and label paths for train and validation
+    train_images = [osp.join(data_root, data['image_path']) for data in train_data]
+    train_labels = [osp.join(data_root, data['json_path']) for data in train_data]
+    val_images = [osp.join(data_root, data['image_path']) for data in val_data]
+    val_labels = [osp.join(data_root, data['json_path']) for data in val_data]
 
-# Config 파일 로드
-config_file = 'configs/config.py'
-cfg = Config.fromfile(config_file)
+    # Set the dataset configuration
+    config.train_dataloader.dataset.image_files = train_images
+    config.train_dataloader.dataset.label_files = train_labels
 
-# Set up working dir to save files and logs.
-cfg.work_dir = './work_dirs/smoke-test'
+    config.val_dataloader.dataset.image_files = val_images
+    config.val_dataloader.dataset.label_files = val_labels
 
-# Sweep 파라미터 적용 (범위 동적으로 조정)
-if hasattr(sweep_config, 'lr'):
-    cfg.optimizer.lr = sweep_config.lr  # 학습률 조정
-if hasattr(sweep_config, 'weight_decay'):
-    cfg.optimizer.weight_decay = sweep_config.weight_decay  # Weight Decay 조정
-if hasattr(sweep_config, 'batch_size'):
-    cfg.data.samples_per_gpu = sweep_config.batch_size  # 배치 크기 조정
-if hasattr(sweep_config, 'num_epochs'):
-    cfg.runner.max_epochs = sweep_config.num_epochs  # 에포크 수 조정
+    return config
 
-# WandB Config 확인 로그
-wandb.config.update(
-    {
-        "optimizer.lr": cfg.optimizer.lr,
-        "optimizer.weight_decay": cfg.optimizer.weight_decay,
-        "data.samples_per_gpu": cfg.data.samples_per_gpu,
-        "runner.max_epochs": cfg.runner.max_epochs,
-    }
-)
+def parse_args():
+    """CLI arguments for smoke test."""
+    parser = argparse.ArgumentParser(description="Run Smoke Test for MMsegmentation")
+    parser.add_argument(
+        "--config",
+        required=True,
+        help="Path to the config file"
+    )
+    parser.add_argument(
+        "--fold-path",
+        required=True,
+        help="Path to the JSON file defining train/validation splits"
+    )
+    parser.add_argument(
+        "--data-root",
+        required=True,
+        help="Root directory containing the dataset"
+    )
+    parser.add_argument(
+        "--work-dir",
+        default=None,
+        help="Directory to save logs and models"
+    )
 
-# 모델 초기화
-model = init_segmentor(cfg)
+    return parser.parse_args()
 
-# 학습 시작
-train_segmentor(model, cfg)
+def run_smoke_test(args):
+    """
+    Smoke Test: 기본 동작 확인을 위한 빠른 실행.
+    
+    Args:
+        args: CLI arguments containing config path, fold path, and work_dir.
+    """
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("SmokeTest")
+
+    # Config 파일 로드
+    cfg = Config.fromfile(args.config)
+    cfg = set_xraydataset_from_fold(cfg, args.fold_path, args.data_root)
+    logger.info(f"Loaded config from {args.config} and fold data from {args.fold_path}")
+
+    cfg.launcher = "none"
+
+    # Set up working dir to save files and logs.
+    if args.work_dir is not None:
+        # CLI로 전달된 work_dir 사용
+        cfg.work_dir = args.work_dir
+    elif cfg.get('work_dir', None) is None:
+        # config 파일 이름을 기본 work_dir로 사용
+        cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0])
+    else:
+        # Config 파일에 정의된 work_dir 사용
+        cfg.work_dir = cfg.work_dir
+
+    logger.info(f"Work directory: {cfg.work_dir}")
+
+    runner = Runner.from_cfg(cfg)
+
+    # 학습 시작
+    logger.info("Starting smoke test training...")
+    runner.train()
+    logger.info("Smoke test completed successfully.")
+
+if __name__ == "__main__":
+    wandb.login(key="97ae30a3f47da7ce905379af5f6bfc8d2d4dd531")
+
+    # CLI 인자 파싱
+    args = parse_args()
+
+    # Smoke Test 실행
+    run_smoke_test(args)
