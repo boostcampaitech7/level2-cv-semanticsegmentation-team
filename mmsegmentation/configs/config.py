@@ -38,5 +38,5 @@ train_cfg = dict(
 
 default_hooks = dict(
     logger=dict(type='LoggerHook', log_metric_by_epoch=True),
-    checkpoint=dict(type='CheckpointHook', by_epoch=True, max_keep_ckpts=1, save_best='val/DiceMetric', rule='greater'),
+    checkpoint=dict(type='CheckpointHook', by_epoch=True, max_keep_ckpts=1, save_best='DiceMetric', rule='greater'),
     wandb_logger=dict(type='WandBLoggerHook', interval=10))
