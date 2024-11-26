@@ -1,3 +1,4 @@
 wandb/
 work_dir/
 *.csv
+*.pyc
