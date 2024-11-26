@@ -3,7 +3,7 @@ _base_ = [
     '/data/ephemeral/home/github/mmsegmentation/configs/config_dataset.py',
 ]
 
-crop_size = (1024, 1024)
+crop_size = (2048, 2048)
 data_preprocessor = dict(
     _delete_=True,  # 기존 설정 삭제
     type='SegDataPreProcessor',
@@ -34,7 +34,7 @@ model = dict(
 train_cfg = dict(
     _delete_=True,  # 기존 설정 삭제
     type='EpochBasedTrainLoop',
-    max_epochs=30
+    max_epochs=50
 )
 
 default_hooks = dict(
