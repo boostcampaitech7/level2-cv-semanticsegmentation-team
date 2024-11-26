@@ -68,11 +68,15 @@ def train_with_wandb_sweep():
     cfg = set_xraydataset_from_fold(cfg, args.fold_path, DEFAULT_DATA_ROOT)
 
     # 작업 디렉토리 설정
-    cfg.work_dir = args.work_dir
+    sweep_id = wandb.run.id  # 현재 sweep 실행의 고유 ID 가져오기
+    cfg.work_dir = osp.join(args.work_dir, sweep_id)  # 고유 작업 디렉토리 생성
 
     # WandB Sweep의 하이퍼파라미터 가져오기
     cfg.optim_wrapper.optimizer.lr = wandb.config.lr
     cfg.optim_wrapper.optimizer.weight_decay = wandb.config.weight_decay
+    # cfg.train_dataloader.batch_size=4
+    # cfg.val_dataloader.batch_size=1
+    # cfg.optim_wrapper.type="AmpOptimWrapper"
 
     # Runner 생성
     runner = Runner.from_cfg(cfg)
@@ -87,8 +91,9 @@ if __name__ == "__main__":
         "method": "bayes",
         "metric": {"goal": "maximize", "name": "mDice"},
         "parameters": {
-            "lr": {"max": 1e-2, "min": 1e-4, "distribution": "uniform"},
-            "weight_decay": {"max": 1e-2, "min": 1e-4, "distribution": "uniform"}
+            "lr": {"max": 1e-3, "min": 1e-5, "distribution": "uniform"},
+            "weight_decay": {"max": 1e-2, "min": 1e-4, "distribution": "uniform"},
+            "max_epoch": {"value": 40}
         },
         "early_terminate":{
             "type": "hyperband",
