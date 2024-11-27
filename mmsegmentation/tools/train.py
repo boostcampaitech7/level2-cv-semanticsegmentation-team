@@ -15,11 +15,11 @@ DEFAULT_CONFIG_PATH = "configs/config.py"
 DEFAULT_DATA_ROOT = "/data/ephemeral/home/data"
 FOLD_JSONS = [
     # "/data/ephemeral/home/data/kfold_splits/fold_1.json",
-    "/data/ephemeral/home/data/kfold_splits/fold_2.json",
-    "/data/ephemeral/home/data/kfold_splits/fold_3.json"
+    # "/data/ephemeral/home/data/kfold_splits/fold_2.json",
+    "/data/ephemeral/home/data/kfold_splits/fold_3.json",
     "/data/ephemeral/home/data/kfold_splits/fold_4.json",
 ]
-INITIAL_CHECKPOINT = "/data/ephemeral/home/github/mmsegmentation/work_dir/segformer/fold1/best_mDice_epoch_1.pth"
+INITIAL_CHECKPOINT = "/data/ephemeral/home/github/mmsegmentation/work_dir/segformer/fold2/epoch_50.pth"
 
 def load_fold_data(fold_path: str):
     """Load train and validation data from fold JSON file."""
@@ -129,7 +129,7 @@ def train_fold(fold_path, prev_checkpoint, work_dir):
     runner.train()
 
      # Fold 학습 완료 후 최적의 모델 저장 경로 반환
-    latest_checkpoint = osp.join(work_dir, "last_ckpt.pth")
+    latest_checkpoint = osp.join(work_dir, "epoch_50.pth")
     return latest_checkpoint
 
 if __name__ == "__main__":
@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     # Fold 순차 학습 루프 (Fold 1부터 시작)
     prev_checkpoint = INITIAL_CHECKPOINT  # Fold 0 최적 모델로 시작
-    for i, fold_path in enumerate(FOLD_JSONS, start=2):  # Fold 1부터 번호 시작
+    for i, fold_path in enumerate(FOLD_JSONS, start=3):  # Fold 1부터 번호 시작
         print(f"Training Fold {i}...")
         work_dir = osp.join(args.work_dir, f"fold{i}")
         os.makedirs(work_dir, exist_ok=True)  # 작업 디렉토리 생성
