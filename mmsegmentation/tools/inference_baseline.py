@@ -27,15 +27,6 @@ CLASSES = [
 ]  # Add your class names here
 IND2CLASS = {i: cls for i, cls in enumerate(CLASSES)}  # Map index to class name
 
-# Model setup
-cfg = Config.fromfile('configs/config.py')  # Load your configuration file here
-model = MODELS.build(cfg.model)
-checkpoint = load_checkpoint(
-    model,
-    "/data/ephemeral/home/github/mmsegmentation/work_dir/segformer/7lg1mghx/best_mDice_epoch_33.pth",
-    map_location="cpu"
-)
-
 # Get PNG image paths
 pngs = {
     os.path.relpath(os.path.join(root, fname), start=IMAGE_ROOT)
@@ -94,8 +85,40 @@ def _preprare_data(imgs, model):
 
     return data, is_batch
 
-# Test function
-def test(model, image_paths, thr=0.5):
+def initialize_model(config_path, checkpoint_path, device):
+    """
+    Initialize the MMSegmentation model with configuration and checkpoint.
+
+    Args:
+        config_path (str): Path to the model configuration file.
+        checkpoint_path (str): Path to the model checkpoint file.
+        device (torch.device): Device to load the model onto.
+
+    Returns:
+        model (nn.Module): Initialized MMSegmentation model.
+    """
+    cfg = Config.fromfile(config_path)
+    model = MODELS.build(cfg.model)
+    load_checkpoint(model, checkpoint_path, map_location=device)
+    model = model.to(device)
+    model.eval()
+    return model, cfg
+
+def test(model, image_paths, cfg, device, thr=0.5):
+    """
+    Perform inference on a list of images.
+
+    Args:
+        model (nn.Module): MMSegmentation model.
+        image_paths (list): List of image file paths.
+        cfg (Config): Configuration for the model and pipeline.
+        device (torch.device): Device to perform inference on.
+        thr (float): Threshold for binary segmentation.
+
+    Returns:
+        rles (list): List of encoded RLEs for each segmentation mask.
+        filename_and_class (list): List of filename and class name tuples.
+    """
     rles = []
     filename_and_class = []
     with torch.no_grad():
@@ -107,15 +130,17 @@ def test(model, image_paths, thr=0.5):
             # Prepare data
             data, is_batch = _preprare_data(img, model)
 
+            # Move inputs and data_samples to GPU
+            data['inputs'] = [input_.to(device) for input_ in data['inputs']]
+            data['data_samples'] = [sample.to(device) for sample in data['data_samples']]
+
             # Forward the model
-            with torch.no_grad():
-                outputs = model.test_step(data)
+            outputs = model.test_step(data)
 
             outputs = outputs[0].pred_sem_seg.data
             outputs = outputs[None]
 
             # Restore original size
-            outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
             outputs = torch.sigmoid(outputs)
             outputs = (outputs > thr).detach().cpu().numpy()
 
@@ -128,10 +153,17 @@ def test(model, image_paths, thr=0.5):
 
     return rles, filename_and_class
 
-# Main entry point
 if __name__ == "__main__":
+    # Device setup
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Model and configuration setup
+    config_path = 'configs/config.py'
+    checkpoint_path = '/data/ephemeral/home/github/mmsegmentation/work_dir/segformer/fold4/epoch_50.pth'
+    model, cfg = initialize_model(config_path, checkpoint_path, device)
+
     # Run the test and save results
-    rles, filename_and_class = test(model, pngs)
+    rles, filename_and_class = test(model, pngs, cfg, device)
     classes, filename = zip(*[x.split("_") for x in filename_and_class])
     df = pd.DataFrame({
         "image_name": filename,
@@ -139,4 +171,4 @@ if __name__ == "__main__":
         "rle": rles,
     })
 
-    df.to_csv("segformer_submission_2048.csv", index=False)
+    df.to_csv("segformer_submission_2048_fold0123.csv", index=False)
