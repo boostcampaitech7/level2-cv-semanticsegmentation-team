@@ -112,7 +112,49 @@ Jupyter Notebook을 활용한 데이터 분석 및 실험 결과 기록.
 
 ## 🛠️ 사용 방법
 
-### 1️⃣ **필수 패키지 설치**
+이 리포지토리는 **여러 모델 구현**과 **시각화 도구**를 포함하고 있으며, 각 모델 및 도구 사용 방법은 아래와 같습니다.  
+모델 별로 필요한 패키지와 실행 방법이 다르므로, 적합한 설정에 따라 실행하세요.
+
+---
+
+### 1️⃣ **모델 실행**
+
+#### 지원 모델
+- **MMSegmentation**: `models/mmsegmentation`
+- **SAM2UNet**: `models/sam2unet`
+- **SMP (Semantic Segmentation Models)**: `models/smp`
+
+#### 공통 사항
+1. **Python 버전**: Python 3.8 이상 권장.
+2. **CUDA 지원**: GPU가 필요할 경우 모델별 CUDA 요구사항 확인.
+3. **환경 격리**: 각 모델별 독립적인 가상 환경(venv 또는 conda) 사용 권장.
+
+#### 📦 필수 패키지 설치
+모델 별 요구사항을 설치합니다.
 ```bash
-pip install -r requirements.txt
+# MMSegmentation
+pip install -r models/mmsegmentation/requirements.txt
+
+# SAM2UNet
+pip install -r models/sam2unet/requirements.txt
+
+# SMP
+pip install -r models/smp/requirements.txt
 ```
+
+## ▶️ 학습 실행
+모델 학습 실행은 다음과 같습니다:
+
+```bash
+# MMSegmentation
+python models/mmsegmentation/tools/train.py --config models/mmsegmentation/configs/train_config.yaml
+
+# SAM2UNet
+python models/sam2unet/train.py --config models/sam2unet/configs/train_config.yaml
+
+# SMP
+python models/smp/train.py --config models/smp/configs/train_config.yaml
+```
+
+
+
