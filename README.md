@@ -155,6 +155,58 @@ python models/sam2unet/train.py --config models/sam2unet/configs/train_config.ya
 # SMP
 python models/smp/train.py --config models/smp/configs/train_config.yaml
 ```
+## 시각화 도구
+---
+### 1️⃣ Streamlit Visual
+아래 명령어를 사용해 Streamlit 앱을 실행합니다.
+```bash
+streamlit run streamlit_visual.py
+```
+실행 후 비교하고자 하는 두 개의 CSV 파일을 업로드합니다.
 
+결과 해석:
+White: 두 CSV 파일이 동일하게 예측한 픽셀.
+Red/Green: 두 CSV 파일이 서로 다르게 예측한 픽셀.
+!!! 실행 전 코드에서 test/DCM의 경로를 올바르게 설정해야 합니다.
+
+![image](https://github.com/user-attachments/assets/20fb9bef-2f0e-4ff1-aaa8-fd86ab2dd870)
+---
+
+### 2️⃣ Class Checker
+아래 명령어를 사용해 Streamlit 앱을 실행합니다.
+```bash
+streamlit run streamlit_ClassChecker.py
+```
+실행 후 비교하고자 하는 두 개의 CSV 파일을 업로드합니다.
+결과 해석:
+막대그래프를 통해 클래스별 겹침 정도를 확인할 수 있습니다.
+최대 값은 33.3%로, 두 CSV가 거의 동일하게 예측했음을 의미합니다.
+특정 클래스를 선택하면 어느 CSV가 더 많이 예측했는지 확인 가능합니다.
+![image](https://github.com/user-attachments/assets/8d8240eb-4335-4a45-8e52-a224c718baf6)
+
+---
+
+### 3️⃣ Train/Test Data Visualization
+데이터 시각화를 위한 Streamlit 앱 실행:
+```bash
+streamlit run app.py
+```
+
+웹 브라우저가 열리며 다음 기능을 사용할 수 있습니다:
+Train Data Visualization: 학습 데이터와 Ground Truth(GT) 확인 (EDA 용도).
+Test Data Visualization: 테스트 데이터와 예측 결과를 비교 (정확도 확인).
+![image](https://github.com/user-attachments/assets/a5a46b46-e892-4a53-ae92-b68fadf6fa48)
+---
+
+### K-Fold 생성
+데이터를 K-Folds로 나누는 스크립트를 실행합니다.
+```
+python tools/create_kfolds.py
+```
+---
+
+## 📢 프로젝트 정보
+
+이 프로젝트는 **네이버 Boostcamp AI Tech 7기**에서 **Upstage.ai 플랫폼**을 통해 진행되었습니다.
 
 
