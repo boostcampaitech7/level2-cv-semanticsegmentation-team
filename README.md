@@ -191,10 +191,14 @@ streamlit run streamlit_ClassChecker.py
 ```bash
 streamlit run app.py
 ```
+웹 브라우저가 열리며 다음 기능을 사용할 수 있습니다.
 
-웹 브라우저가 열리며 다음 기능을 사용할 수 있습니다:
-Train Data Visualization: 학습 데이터와 Ground Truth(GT) 확인 (EDA 용도).
+Train Data Visualization: 학습 데이터와 Ground Truth 확인 (EDA 용도).
+
 Test Data Visualization: 테스트 데이터와 예측 결과를 비교 (정확도 확인).
+markdown
+코드 복사
+
 ![image](https://github.com/user-attachments/assets/a5a46b46-e892-4a53-ae92-b68fadf6fa48)
 ---
 
